@@ -42,7 +42,7 @@ def read_tab_by_col(tab_in, col_a, col_b, transv_only, no_damage):
         col_b_tab = list()
     for line in tab_in:
         fields = line.rstrip().split()
-        chrm = int(fields[0].lstrip('chr'))
+        chrm = fields[0]
         pos = int(fields[1])
         ref = fields[2]
         alt = fields[3]
@@ -63,7 +63,7 @@ def read_tab_by_col(tab_in, col_a, col_b, transv_only, no_damage):
 
 def write_pair(pairs_out, col_a_entry, col_b_entry):
     """ Writes out a pair entry to the output stream provided """
-    pairs_out.write('%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n'
+    pairs_out.write('%s\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n'
             % (col_a_entry[0], col_a_entry[1], col_b_entry[1],
                col_a_entry[2], col_a_entry[3], col_a_entry[4],
                col_b_entry[2], col_b_entry[3], col_b_entry[4]))
@@ -126,6 +126,7 @@ def main(argv=None):
     parser.add_argument('col_b', metavar='column_b', type=int,
                         help='Column B')
     parser.add_argument('tab_filename', metavar='sites.tab', type=str,
+                        nargs='?', default=None,
                         help='Table of site positions')
     parser.add_argument('--range', '-r', metavar='low-hi', type=str,
                         default='200-20000', \
@@ -141,8 +142,11 @@ def main(argv=None):
 
     low_hi = parse_low_hi(args.range)
     same_col = args.col_a == args.col_b
+    
+    tab_in = sys.stdin
+    if args.tab_filename is not None:
+        tab_in = open(args.tab_filename, 'r')
 
-    tab_in = open(args.tab_filename, 'r')
     col_a_tab, col_b_tab = read_tab_by_col(tab_in, 
                                            args.col_a, 
                                            args.col_b,

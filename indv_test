@@ -242,12 +242,13 @@ def main(argv=None):
                                      "individuals based on a reference panel "
                                      "used to model the variation in the "
                                      "population to which they belong.")
-    parser.add_argument('pairs_filename', metavar='pairs.tab', type=str,
-                        help='Table of SNP pairs')
     parser.add_argument('impute_hap', metavar='impute.hap', type=str, 
                         help='impute.hap file')
     parser.add_argument('impute_leg', metavar='impute.legend', type=str, 
                         help='impute.legend file')
+    parser.add_argument('pairs_filename', metavar='pairs.tab', type=str,
+                        nargs='?', default=None,
+                        help='Table of SNP pairs')
     parser.add_argument('-x', '--haploid', action='store_true', 
                         help='Haploid mode (for chrX, etc)')
     parser.add_argument('-r', '--random', type=str, metavar='MODEL', 
@@ -271,7 +272,10 @@ def main(argv=None):
     hap_in.close()
     leg_in.close()
 
-    pair_in = open(args.pairs_filename, 'r')
+    pair_in = sys.stdin
+    if args.pairs_filename is not None:
+        pair_in = open(args.pairs_filename, 'r')
+
     total_log_ratio = process_pair_file(haps, legend, pair_in, 
                                         args, sys.stdout)
     pair_in.close()

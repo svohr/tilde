@@ -123,10 +123,19 @@ Example
 
 ### 4. Calculate the log-likelihood ratios for all pairs
    ```
-   indv_test chr21.CEU_panel.s1_s2.pairs.tab chr21.CEU_panel.impute.hap chr21.CEU_panel.impute.legend > chr21.CEU_panel.s1_s2.probs.tab
+   indv_test chr21.CEU_panel.impute.hap chr21.CEU_panel.impute.legend chr21.CEU_panel.s1_s2.pairs.tab > chr21.CEU_panel.s1_s2.probs.tab
    ```
    This script calculates the log-likelihood ratios and reports other 
    statistics for all pairs of SNPs.
+
+   Alternatively, steps 2 through 4 can be run together by piping the output of
+   one script to the next.
+   ```
+   make_obs_tab -q 30 -Q 30 chr21 chr21.CEU_panel.impute.legend sample1.bam sample2.bam 
+   | pairs_in_range -r 100-50000 -d 4 5 
+   | indv_test chr21.CEU_panel.impute.hap chr21.CEU_panel.impute.legend
+   > chr21.CEU_panel.s1_s2.pairs.tab
+   ```
 
 ### 5. Aggregate log-likelihood ratios by sampling with sliding windows.
    ```
@@ -137,4 +146,5 @@ Example
    summarize the results. This is repeated (default=1,000 times) to build
    an empirical distribution of the aggregated log-likelihood ratio. This 
    can be run on the combined results from multiple chromosomes.
+
 
