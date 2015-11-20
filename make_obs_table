@@ -1,0 +1,178 @@
+#! /usr/bin/python
+"""
+
+make_obs_tab
+
+This script combines known SNP positions in IMPUTE format with single base
+observations made from a BAM file containing reads mapped to a reference 
+sequence.
+
+Sam Vohr (svohr@soe.ucsc.edu)
+Thu Nov  5 16:53:36 PST 2015
+
+"""
+
+
+import sys
+import subprocess
+import tempfile
+import os
+import argparse
+import collections
+import random
+
+
+def read_snp_legend(leg_in):
+    """ Reads in the SNPs from the impute legend file and builds a list of
+        snp positions, reference and alternate alleles. """
+    snp_tab = list()
+    leg_in.readline()   # bite off the header
+    for line in leg_in:
+        items = line.rstrip().split()
+        pos = items[1]
+        ref = items[2]
+        alt = items[3]
+        snp_tab.append((pos, ref, alt))
+    return snp_tab
+
+
+def dump_snp_positions(snp_tab, chrm_id, pos_out):
+    """ Writes the positions of our SNPs to an output stream (to be used by
+        samtools mpileup to find observed bases). """ 
+    for (pos, ref, alt) in snp_tab:
+        pos_out.write('%s\t%s\n' % (chrm_id, pos))
+    return
+
+
+def choose_base_from_mpileup(ref, bases_str):
+    """ Parses the bases field of mpileup output and returns a single base
+        observed at this position. Positions where indels occur are not 
+        considered. If more than one base is present, one is chosen at
+        random. """
+    if '+' in bases_str or '-' in bases_str or '*' in bases_str:
+        return None
+    bases_chrs = list(bases_str)
+    i = 0
+    while i < len(bases_chrs):
+        if bases_chrs[i] == '^':
+            bases_chrs[i] = ''
+            bases_chrs[i+1] = ''
+            i += 1
+        elif bases_chrs[i] == '$':
+            bases_chrs[i] = ''
+        elif bases_chrs[i] == '.' or bases_chrs[i] == ',':
+            bases_chrs[i] = ref
+        i += 1
+    bases = ''.join(bases_chrs).upper()
+    if len(bases) == 0:
+        return None
+    return random.choice(bases)
+
+
+def observe_snps_from_mpileup(mpu_output, max_cov):
+    """ Reads output from samtools mpileup to observe single bases at 
+        specific sites that pass a coverage filter. """
+    observed = collections.defaultdict(lambda: '.')
+    for line in mpu_output.splitlines():
+        mpileup_fields = line.rstrip().split('\t')
+        pos = mpileup_fields[1]
+        ref = mpileup_fields[2]
+        cov = int(mpileup_fields[3])
+        if cov > 0 and cov <= max_cov:
+            bases = mpileup_fields[4]
+            obs_base = choose_base_from_mpileup(ref, bases)
+            if obs_base is not None:
+                observed[pos] = obs_base
+    return observed
+
+
+def get_snps_samtools(bam_filename, pos_filename, min_mapq, min_baseq, max_cov):
+    """ Runs samtools mpileup as a subprocess and returns the output """
+    samtools_args = ['/usr/local/bin/samtools', 'mpileup',
+                     '-q', str(min_mapq),
+                     '-Q', str(min_baseq),
+                     '-d', str(max_cov + 10),
+                     '-l', pos_filename,
+                     bam_filename]
+    mpileup = subprocess.Popen(samtools_args, 
+                               stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+    out, err = mpileup.communicate()
+    return out 
+
+
+def write_final_table(out, chrm, snp_tab, obs_tab):
+    """ Writes a tab-delimited table to the given output stream. An entry is
+        written out for any SNP where an observation was made in any of the
+        samples; SNPs that had no observations have no output. """
+    for pos, ref, alt in snp_tab:
+        # Skip this entry if it has not been observed
+        if any([pos in obs for obs in obs_tab]):
+            out.write('%s\t%s\t%s\t%s' % (chrm, pos, ref, alt))
+            for obs in obs_tab:
+                out.write('\t%s' % obs[pos])
+            out.write('\n')
+    return
+
+
+def build_obs_table_samtools(tab_out, chrm, snp_tab, bams, 
+                             min_mapq, min_baseq, max_cov):
+    """ Reads through bam files to find base observations for SNPs. 
+        Builds a table of observations by SNP. """
+    obs_tab = list()
+    pos_file = tempfile.NamedTemporaryFile(delete=False, mode='w') 
+    try:
+        dump_snp_positions(snp_tab, chrm, pos_file)
+        pos_file.close()
+
+        for bam in bams:
+            mpu_output = get_snps_samtools(bam, pos_file.name, 
+                                           min_mapq, min_baseq, max_cov) 
+            obs_tab.append(observe_snps_from_mpileup(mpu_output, max_cov))
+        write_final_table(tab_out, chrm, snp_tab, obs_tab) 
+    finally:
+        os.remove(pos_file.name)
+    return
+
+
+def main(argv=None):
+    """ Builds a table of SNP positions, referance, alternative alleles, and 
+        single base observations from mapped reads. """
+    if argv is None:
+        argv = sys.argv
+
+    parser = argparse.ArgumentParser("Tests if two libraries are consistent "
+                                     "with originating from 1 or 2 "
+                                     "individuals based on a reference panel "
+                                     "used to model the variation in the "
+                                     "population to which they belong.")
+    parser.add_argument('chrm', metavar='chrm', type=str,
+                        help='Chromosome ID')
+    parser.add_argument('impute_leg', metavar='impute.legend', type=str, 
+                        help='impute.legend file')
+    parser.add_argument('bams', metavar='reads.bam', nargs='+', type=str, 
+                        help='BAM file(s)')
+
+    parser.add_argument('-q', '--min-bq', type=int, 
+                        metavar="BASEQ", default=30, 
+                        help='Minimum base quaility for observations')
+    parser.add_argument('-Q', '--min-mq', type=int, 
+                        metavar="MAPQ", default=30,
+                        help='Minimum mapping quaility for observations')
+    parser.add_argument('-c', '--max-cov', type=int, 
+                        metavar="COV", default=1,
+                        help='Maximum coverage to allow (inclusive).')
+    args = parser.parse_args()
+
+    leg_in = open(args.impute_leg, 'r')
+    snp_tab = read_snp_legend(leg_in) 
+    leg_in.close()
+    
+    tab_out = sys.stdout
+    build_obs_table_samtools(tab_out, args.chrm, snp_tab, args.bams, 
+                             args.min_mq, args.min_bq, args.max_cov)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

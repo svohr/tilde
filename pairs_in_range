@@ -1,0 +1,161 @@
+#! /usr/bin/python
+"""
+This script takes a table where the first two fields are chromosome and
+position and a pair of columns (can be the same) and writes out pairs of 
+sites that have data (not '.') where the first site is from column A and 
+the second is in column B, within a range (e.g. between 200-20,000 bp)
+
+Sam Vohr (svohr@soe.ucsc.edu)
+Thu Apr 24 10:20:44 PDT 2014
+"""
+
+import sys
+import argparse
+
+
+def is_transition(base1, base2):
+    """ Returns true if the two alleles represent a transition mutation """
+    if ((base1 == 'C' and base2 == 'T') or
+        (base1 == 'T' and base2 == 'C') or
+        (base1 == 'A' and base2 == 'G') or
+        (base1 == 'G' and base2 == 'A')) :
+        return True
+    else:
+        return False
+
+
+def is_damage(ref, alt, base):
+    """ Returns true is the observed base is possibly the result of damage. """
+    if (ref == 'C' and alt == 'T') or (ref == 'T' and alt == 'C'):
+        return base == 'T'
+    elif (ref == 'A' and alt == 'G') or (ref == 'G' and alt == 'A'):
+        return base == 'A'
+    return False
+
+
+def read_tab_by_col(tab_in, col_a, col_b, transv_only, no_damage):
+    """ Reads a tab-delimited input stream and returns two tables of 
+        positions where a sequencing base is present in each column """
+    col_a_tab = list()
+    col_b_tab = None
+    if col_a != col_b:
+        col_b_tab = list()
+    for line in tab_in:
+        fields = line.rstrip().split()
+        chrm = int(fields[0].lstrip('chr'))
+        pos = int(fields[1])
+        ref = fields[2]
+        alt = fields[3]
+        if transv_only and is_transition(ref, alt):
+            continue
+        if fields[col_a] != '.':
+            base = fields[col_a]
+            if not no_damage or not is_damage(ref, alt, base):
+                col_a_tab.append((chrm, pos, ref, alt, base))
+        if col_a != col_b and fields[col_b] != '.':
+            base = fields[col_b]
+            if not no_damage or not is_damage(ref, alt, base):
+                col_b_tab.append((chrm, pos, ref, alt, base))
+    if col_a == col_b:
+        col_b_tab = col_a_tab
+    return col_a_tab, col_b_tab
+
+
+def write_pair(pairs_out, col_a_entry, col_b_entry):
+    """ Writes out a pair entry to the output stream provided """
+    pairs_out.write('%d\t%d\t%d\t%s\t%s\t%s\t%s\t%s\t%s\n'
+            % (col_a_entry[0], col_a_entry[1], col_b_entry[1],
+               col_a_entry[2], col_a_entry[3], col_a_entry[4],
+               col_b_entry[2], col_b_entry[3], col_b_entry[4]))
+
+
+def find_pairs_for_one(col_a_entry, col_b_tab, low_hi, same_col, alt_only):
+    """ Finds all pairs associated with one position, within the specified
+        range """
+    pairs = list()
+    chrm_a, pos_a, ref_a, alt_a, base_a = col_a_entry
+    for col_b_entry in col_b_tab:
+        chrm_b, pos_b, ref_b, alt_b, base_b = col_b_entry 
+        if chrm_a != chrm_b: 
+            continue
+        else:
+            if alt_only and (base_a == ref_a or base_b == ref_b):
+                continue # skip reference bases.
+            dist = pos_b - pos_a
+            if same_col:
+                # only find pair sites ahead of this one to avoid duplicates.
+                if dist > low_hi[0] and dist < low_hi[1]:
+                    pairs.append( (dist, col_a_entry, col_b_entry) )
+            else:
+                abs_dist = abs(dist)
+                if abs_dist > low_hi[0] and abs_dist < low_hi[1]:
+                    pairs.append((abs_dist, col_a_entry, col_b_entry))
+            if dist > low_hi[1]:
+                break
+    return pairs 
+
+
+def find_pairs(pairs_out, col_a_tab, col_b_tab, 
+               low_hi, same_col, alt_only):
+    """ Finds all pairs in range between two sets of positions (columns) """
+    for col_a_entry in col_a_tab:
+        pairs = find_pairs_for_one(col_a_entry, col_b_tab, 
+                                   low_hi, same_col, alt_only)
+        for pair in pairs:
+            write_pair(pairs_out, pair[1], pair[2])
+
+
+def parse_low_hi(range_str):
+    """ Parses a range string of format 'low-high' and returns the low and
+        high values as integerts. """
+    low, _, high = range_str.rpartition('-')
+    return int(low), int(high)
+
+
+def main(argv=None):
+    """ Takes in a table of variant sites with base observations for 1 or more
+        samples and finds pairs of nearby sites where each of two samples has
+        1 observation. """
+    if argv is None:
+        argv = sys.argv
+
+    parser = argparse.ArgumentParser("Writes pairs with data for the "
+                                     "specified columns within a window.")
+    parser.add_argument('col_a', metavar='column_a', type=int,
+                        help='Column A')
+    parser.add_argument('col_b', metavar='column_b', type=int,
+                        help='Column B')
+    parser.add_argument('tab_filename', metavar='sites.tab', type=str,
+                        help='Table of site positions')
+    parser.add_argument('--range', '-r', metavar='low-hi', type=str,
+                        default='200-20000', \
+                        help='Range for distance between pairs')
+    parser.add_argument('--transversions', '-t', action='store_true',
+                        help='Use only transversions')
+    parser.add_argument('--damage', '-d', action='store_true',
+                        help='Filter possibly damaged bases (C>T, G>A).'
+                            ' Less strict than -t')
+    parser.add_argument('--alt', '-a', action='store_true',
+                        help='Use only alternate alleles')
+    args = parser.parse_args()
+
+    low_hi = parse_low_hi(args.range)
+    same_col = args.col_a == args.col_b
+
+    tab_in = open(args.tab_filename, 'r')
+    col_a_tab, col_b_tab = read_tab_by_col(tab_in, 
+                                           args.col_a, 
+                                           args.col_b,
+                                           args.transversions,
+                                           args.damage)
+    tab_in.close()
+
+    find_pairs(sys.stdout, col_a_tab, col_b_tab, 
+               low_hi, same_col, args.alt)
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+
