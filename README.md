@@ -1,4 +1,4 @@
-tilde (*T*esting *I*dentity with *L*inkage *D*is*E*quilibrium)
+tilde (Testing Identity with Linkage DisEquilibrium)
 ====================================================
 
 
@@ -57,19 +57,19 @@ applied to reduce the chance of errors due to mismapped reads.
 
 ### pairs\_in\_range
 This script takes as input a tab-delimited file of SNP positions and base 
-observations produced by `make\_obs\_tab`. From this table, the script finds 
+observations produced by `make_obs_tab`. From this table, the script finds 
 all pairs of SNPs with an observation from each sample that are within a 
 specified range (in base pairs) and pass filtering criteria.
 
 ### indv\_test
 Reads in a tab-delimited table of pairs of SNP positions and observations
-from 2 samples as produced by `pairs\_in\_range` and calculates the 
+from 2 samples as produced by `pairs_in_range` and calculates the 
 probabilities of observing those two bases under a single individual model or 
 two unrelated individuals model. The log-likelihood ratio comparing the two 
 is written out with the original SNP positions.
 
 ### sample\_pairs
-Downsamples output from `indv\_test` run(s) and aggregates log-likelihood 
+Downsamples output from `indv_test` run(s) and aggregates log-likelihood 
 ratios by sliding window. Resample-aggregate steps are repeated to assess the 
 mean and variance of the genome-wide aggregated log-likelihood ratio. Unlike
 the other scripts, input can be made up of results from multiple chromosomes.
@@ -94,7 +94,7 @@ Example
    at least 10. We also filter SNPs based on a BED file of mappable regions. 
    This can be generated using [mappability annotation](http://genome.ucsc.edu/cgi-bin/hgTrackUi?hgsid=454283543_xadktKfUePJnQNSDZdmRKBlu4Tvg&c=chr21&g=wgEncodeMapability) from the [UCSC Genome Browser](http://www.genome.ucsc.edu/) or 
    Heng Li's [SNPable](http://lh3lh3.users.sourceforge.net/snpable.shtml) 
-   program, for example. The file `CEU\_indv.txt` contains the identifiers
+   program, for example. The file `CEU_indv.txt` contains the identifiers
    for the individuals from the CEU (Utah residents with Northern and Western 
    European ancestry). 
 
@@ -112,14 +112,14 @@ Example
    ```
    pairs_in_range -r 100-50000 -d 4 5 chr21.CEU_panel.obs.tab > chr21.CEU_panel.s1_s2.pairs.tab
    ```
-    This invocation finds all pairs of SNPs with 100 bp and 50,000 bp where
-    one SNP has observation from Sample 1 and the other SNP has an observation
-    from Sample 2. The `-d` flag excludes SNPs with observations that may be
-    the result of damage (e.g. where a T is observed and the reference or
-    alternate base is a C). The first two positional arguments give the
-    column in the table from which to draw observations (where the first 
-    column of the input table is 0). The same column can be specified for 
-    both arguments.
+   This invocation finds all pairs of SNPs with 100 bp and 50,000 bp where
+   one SNP has observation from Sample 1 and the other SNP has an observation
+   from Sample 2. The `-d` flag excludes SNPs with observations that may be
+   the result of damage (e.g. where a T is observed and the reference or
+   alternate base is a C). The first two positional arguments give the
+   column in the table from which to draw observations (where the first 
+   column of the input table is 0). The same column can be specified for 
+   both arguments.
 
 ### 4. Calculate the log-likelihood ratios for all pairs
    ```
