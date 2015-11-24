@@ -89,7 +89,8 @@ def process_positions( pos_in, win_size, skip_size ):
 
 
 def main(argv=None):
-    '''processes the data'''
+    ''' Repeatedly samples entries from sliding windows and sums the 
+        log-likelihood ratios. '''
     if argv is None:
         argv = sys.argv
     usage = 'sample_pairs <filename>'
@@ -115,6 +116,7 @@ def main(argv=None):
                                                        opts.skip_size)
             print '%f\t%d\t%d' % (log_like, n_pos, n_neg)
     return 0
- 
+
+
 if __name__ == "__main__":
     sys.exit(main())

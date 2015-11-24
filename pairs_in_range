@@ -119,8 +119,10 @@ def main(argv=None):
     if argv is None:
         argv = sys.argv
 
-    parser = argparse.ArgumentParser("Writes pairs with data for the "
-                                     "specified columns within a window.")
+    parser = argparse.ArgumentParser(
+        description="Takes in a table of variant sites with base observations "
+                    "for 1 or more samples and finds pairs of observed sites "
+                    "that are in close proximity of each other.")
     parser.add_argument('col_a', metavar='column_a', type=int,
                         help='Column A')
     parser.add_argument('col_b', metavar='column_b', type=int,

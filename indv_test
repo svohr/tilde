@@ -10,6 +10,15 @@ individuals. These will be used to calculate an odds ratio to compare the
 two models. This is described in more detail in the document for describing
 this analysis.
 
+Note: The way this script calculates the log-likelhood ratio for a pair of
+SNP observations is different than described in the paper. The two models
+compared here are written as conditional probabilities where the probability
+of one observation is conditioned on the other. In the paper, the method
+is described as calculating a joint probability of the two observations.
+However, the log-likelihood ratios caculated by both methods are the same
+since in the joint probability calculation, one of the allele frequencies
+can be cancelled out when the ratio is calculated.
+
 Sam Vohr (svohr@soe.ucsc.edu)
 Thu Apr 24 10:33:03 PDT 2014
 
@@ -249,8 +258,8 @@ def main(argv=None):
     parser.add_argument('pairs_filename', metavar='pairs.tab', type=str,
                         nargs='?', default=None,
                         help='Table of SNP pairs')
-    parser.add_argument('-x', '--haploid', action='store_true', 
-                        help='Haploid mode (for chrX, etc)')
+#   parser.add_argument('-x', '--haploid', action='store_true', 
+#                       help='Haploid mode (for chrX) NOT TESTED')
     parser.add_argument('-r', '--random', type=str, metavar='MODEL', 
                         default=None,
                         help='Randomly choose the second base using '
