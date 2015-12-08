@@ -150,3 +150,9 @@ Example
    can be run on the combined results from multiple chromosomes.
 
 
+Simulations
+-----------
+Scripts that were used to convert genotypes from coalescent simulations
+to simulated low-coverage libraries are reference panels are included in
+the directory `simulations`.
+

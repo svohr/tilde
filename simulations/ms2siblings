@@ -1,0 +1,324 @@
+#! /usr/bin/python
+
+"""
+
+ms2siblings
+
+A modified version of ms2diploid. It uses the first four chromosomes of every
+ms sample and considers them to be two parents, using them to create two 
+"children" diploids that are supposed to be siblings.The program creates 
+libraries from the two parents, the two siblings, and the third pair of 
+chromosomes (an unrelated individual). The impute haplotype matrix is created
+from the rest of the chromosomes in the ms genotype matrix (not considering the
+first six ones).
+
+Carlos Fernando Buen Abad Najar
+Latest update: Thu Jul 24, 2014.
+
+"""
+
+import optparse
+import sys
+import ms
+import random
+
+def translate_pos( ms_sample, seg_len ):
+    '''Thanslates the position of each segregating site according to the number
+    of base pairs in the sequence. It avoids double hits'''
+    if ms_sample.nsites > seg_len: #if there are more positions that base pairs,
+        seg_len = ms_sample.nsites #it increases the number of base pairs
+    trans_pos = [ int( float(pos) * seg_len ) for pos in ms_sample.pos ] 
+    for position in trans_pos: #cleans double hits
+        nxt = trans_pos.index(position)
+        for next_pos in trans_pos[(trans_pos.index(position) + 1) :]:
+            nxt += 1
+            if next_pos == position:
+                trans_pos[nxt] = position + 1
+    return trans_pos
+
+def transposer( ms_sample, indv, minimo, siblings ): 
+    '''Takes the first six chromosomes out of the ms output and
+    translates them to an A and T format. The children genomes are also
+    translated. The rest of the ms output rows are transposed into an 
+    impute haplotype matrix'''
+    mom_1 = list() #First four haplotypes are parental diploids
+    mom_2 = list()
+    dad_1 = list()
+    dad_2 = list()
+    sib1_1 = list() #Children haplotypes (NOT from the ms genotype matrix)
+    sib1_2 = list()
+    sib2_1 = list()
+    sib2_2 = list()
+    con_1 = list() #Unrelates control individual haplotypes
+    con_2 = list()
+    haplotype = list() #Rest of the haplotypes
+    new_sites = list() #Sites to be considered
+    for site in range( ms_sample.nsites ):
+        zeros = 0
+        ones = 0
+        for i in indv:
+            if i > 5:
+                if ms_sample.genotypes[i][site] == '0':
+                    zeros += 1
+                else:
+                    ones += 1
+        judgement = float(min(zeros, ones))/max(zeros, ones)
+        if judgement >= minimo: #checks if the alleles have the minimum freq
+            new_sites.append(site)
+    for new in new_sites: #only the sites that have the min allele freq
+        di_co = list()
+        hap = list()
+        sib = list()
+        for i in indv:
+            if i < 4: #Stores the sibling information with A or T
+                sib.append( siblings[i][new] )
+                if sib[i] == '0':
+                    sib[i] = 'A'
+                else:
+                    sib[i] = 'T'
+            if i < 6: #stores the first six ms haplotypes with A or T
+                di_co.append( ms_sample.genotypes[i][new] )
+                if di_co[i] == '0':
+                    di_co[i] = 'A'
+                else:
+                    di_co[i] = 'T'
+            else:
+                hap.append( ms_sample.genotypes[i][new] ) #rest of the matrix
+        sib1_1.append( sib[0] )
+        sib1_2.append( sib[1] )
+        sib2_1.append( sib[2] )
+        sib2_2.append( sib[3] )
+        mom_1.append( di_co[0] )
+        mom_2.append( di_co[1] )
+        dad_1.append( di_co[2] )
+        dad_2.append( di_co[3] )
+        con_1.append( di_co[4] )
+        con_2.append( di_co[5] )
+        haplotype.append( ' '.join( hap ) )
+    dip_con = [ mom_1, mom_2, dad_1, dad_2, sib1_1, sib1_2, 
+                sib2_1, sib2_2, con_1, con_2 ]
+    return [ dip_con, haplotype, new_sites ]
+    
+def library_generator(top, ind1, ind2, i):
+    '''Randomly chooses if it stores the information of the SNP in position i
+    from one of the chromosomes (ind1) or the other (ind2). If it does not 
+    store any information, it returns a dot.'''
+    magic_number = random.randint(1, top)
+    dice1 = random.randint(1, top)
+    dice2 = random.randint(1, top)
+    if (dice1 == magic_number) and (dice2 != magic_number):
+        return ind1[i]
+    elif (dice2 == magic_number) and (dice1 != magic_number):
+        return ind2[i]
+    else:
+        return '.'
+
+def libraries( dip_con, top, lib_num, lnew_sites ):
+    '''Creates the diploid and control libraries. dip_con contains the
+    information from the mother haplotypes (0, 1), the father haplotypes
+    (2, 3), the children haplotypes (4, 5 and 6, 7) and the unrelated
+    control haplotypes (8,9).'''
+    mom_libraries = []
+    dad_libraries = []
+    sib1_libraries = []
+    sib2_libraries = []
+    con_libraries = []
+    delete_rows = [] #sites with no information from any library
+    for i in range(lnew_sites):
+        mom_row = []
+        for lib in range(lib_num[0]):
+            apex = library_generator(top, dip_con[0], dip_con[1], i)
+            mom_row.append(apex)
+        dad_row = []
+        for lib in range(lib_num[1]):
+            apex = library_generator(top, dip_con[2], dip_con[3], i)
+            dad_row.append(apex)
+        sib1_row = []
+        for lib in range(lib_num[2]):
+            apex = library_generator(top, dip_con[4], dip_con[5], i)
+            sib1_row.append(apex)
+        sib2_row = []
+        for lib in range(lib_num[3]):
+            apex = library_generator(top, dip_con[6], dip_con[7], i)
+            sib2_row.append(apex)
+        con_row = []
+        for lib in range(lib_num[4]):
+            apex = library_generator(top, dip_con[8], dip_con[9], i)
+            con_row.append(apex)
+        mom_libraries.append(mom_row)
+        dad_libraries.append(dad_row)
+        sib1_libraries.append(sib1_row)
+        sib2_libraries.append(sib2_row)
+        con_libraries.append(con_row)
+        if (mom_row == lib_num[0]*['.'] and dad_row == lib_num[1]*['.'] and
+        sib1_row == lib_num[2]*['.'] and sib2_row == lib_num[3]*['.'] and
+        con_row == lib_num[4]*['.']):
+            delete_rows.append(i)
+    return [mom_libraries, dad_libraries, sib1_libraries, sib2_libraries,
+           con_libraries, delete_rows]
+
+def impute_creator( ms_sample, indv, seg_len, sim_num, seg_num, top, lib_num, minimo, siblings ):
+    '''Creates the libraries, legend, position and haplotype strings'''
+    trans_pos = translate_pos( ms_sample, seg_len )
+    mult = sim_num - 1
+    legend = ''
+    library = ''
+    dip_con = ''
+    haplotype = ''
+    new_pos = []
+    dip_hap = transposer( ms_sample, indv, minimo, siblings )
+    new_sites = dip_hap[2] #sites with the minimum frequency
+    lnew_sites = len(new_sites)
+    lib = libraries( dip_hap[0], top, lib_num, lnew_sites )
+    for i in range(lnew_sites): #only sites with minimum allele frequency
+        if not(i in lib[5]): #only sites with information in at least one library
+            dip_con += ( dip_hap[0][0][i] + ' ' + dip_hap[0][1][i] + '\t' +
+            dip_hap[0][2][i] + ' ' + dip_hap[0][3][i] + '\t' +
+            dip_hap[0][4][i] + ' ' + dip_hap[0][5][i] + '\t' +
+            dip_hap[0][6][i] + ' ' + dip_hap[0][7][i] + '\t' +
+            dip_hap[0][8][i] + ' ' + dip_hap[0][9][i] + '\n' )
+            position = str(( 1000000 * mult ) + trans_pos[new_sites[i]])
+            legend += ( 'sim%d_seg%d' % ( sim_num, new_sites[i] + 1 ) + 
+            ' ' + position + ' A T\n' )
+            library += ( 'chr1' + '\t' + position + '\tA\tT\t' + 
+            '\t'.join(lib[0][i]) + '\t' + '\t'.join(lib[1][i]) + '\t' +
+            '\t'.join(lib[2][i]) + '\t' + '\t'.join(lib[3][i]) + '\t' +
+            '\t'.join(lib[4][i]) + '\n' )
+            haplotype += dip_hap[1][i] + '\n'
+            new_pos.append(str(position))
+            seg_num += 1
+    dip_hap[0] = dip_con
+    dip_hap[1] = haplotype
+    translated_pos = '\n'.join( new_pos )+'\n'
+    return (dip_hap, legend, library, translated_pos, seg_num)
+
+def filer(resultados, f_names):
+    '''Stores the information in different files'''
+    for i in range(5):
+        if f_names[i] != 'nofile':
+            new_file = open(f_names[i], "w")
+            new_file.write(resultados[i])
+            new_file.close()
+
+def siblings( ms_sample ):
+    '''The first two pairs of chromosomes are used as parents to
+    create two siblings. For every ms sample it randomly chooses
+    the information contained in one of the two chromosomes per parent
+    to create another diploid individual.'''
+    mom = [ms_sample.genotypes[0], ms_sample.genotypes[1]]
+    dad = [ms_sample.genotypes[2], ms_sample.genotypes[3]]
+    dice_m_1 = random.randint(0,1)
+    dice_m_2 = random.randint(0,1)
+    dice_d_1 = random.randint(0,1)
+    dice_d_2 = random.randint(0,1)
+    siblings = [mom[dice_m_1], dad[dice_d_1], mom[dice_m_2], dad[dice_d_2]]
+    return siblings
+
+def process_ms_results( ms_file, f_names, probability, lib_num, minimo ):
+    '''Takes the ms output and calls all the functions to process it'''
+    # number of bases is specified '-r [rho] [nsites]'
+    seg_len = int( ms_file.args['r'][0].split()[1] )
+    ms_sample = ms_file.next_sim()
+    pops = ms_file.pop_sizes()
+    indv = ( range(sum(pops) ) )
+    diplotype = ''
+    haplotype = ''
+    legend = ''
+    library = ''
+    translated_pos = ''               
+    legend = "ID pos allele0 allele1\n"
+    sim_num = 1
+    seg_num = 0
+    top = int(1/probability)
+    total_size = 0
+    while ms_sample is not None:
+        sibs = siblings( ms_sample )
+        total_size += ms_sample.nsites
+        result = impute_creator( ms_sample, indv, seg_len, 
+                                 sim_num, seg_num, top, lib_num, minimo, sibs )
+        diplotype += result[0][0]
+        haplotype += result[0][1]
+        legend += result[1]
+        library += result[2]
+        translated_pos +=  result[3]
+        seg_num = result[4]
+        ms_sample = ms_file.next_sim()
+        sim_num += 1
+    resultados = [haplotype, legend, 
+                  library, diplotype, translated_pos]
+    filer(resultados, f_names)
+    seg_freq = float(seg_num)/total_size
+    print '\n#Probability of an allele to be preserved', probability
+    print '\n#Calculated probability of a segregating site to be shown in one library', 2*(1-probability)*probability
+    print '\n#Fraction of shown segregating sites', seg_freq
+
+def main(argv=None):
+        
+    if argv is None:
+        argv = sys.argv
+
+    usage = 'ms_impute [OPTIONS] [ms_output_file]'
+    parser = optparse.OptionParser(usage=usage)
+    
+    parser.add_option('-n', '--names', nargs= 5, default= 'impute.hap '
+                      'impute.legend ' 'library ' 'nofile ' 'nofile',
+                      dest='f_names', help='Enter the name of the 5 files' + 
+                      ' in the following order: haploid matrix file,' + 
+                      ' legend file, library file, diplotype, positions' + 
+                      ' file. Type "nofile" to avoid creating the file.')
+
+    parser.add_option('-p', '--prob', default=0.01, type='float', 
+                      dest='probability', help='Probability to preserve' + 
+                      ' a nucleotide in the haplotype (max=0.5)')
+
+    parser.add_option('-m', '--mom', default=1, type='int', dest='mom_num',
+                      help='Enter the number of libraries from the diploid' + 
+                      ' individual')
+
+    parser.add_option('-d', '--dad', default=1, type='int', dest='dad_num',
+                      help='Enter the number of libraries from the diploid' + 
+                      ' individual')
+
+    parser.add_option('-s', '--sib1', default=1, type='int', dest='sib1_num',
+                      help='Enter the number of libraries from the diploid' + 
+                      ' individual')
+
+    parser.add_option('-b', '--sib2', default=1, type='int', dest='sib2_num',
+                      help='Enter the number of libraries from the diploid' + 
+                      ' individual')
+
+    parser.add_option('-c', '--con', default=1, type='int', dest='con_num',
+                      help='Enter the number of libraries from the control' + 
+                      ' individual')
+
+    parser.add_option('-f', '--minfreq', default=0.1, dest='min_freq',
+                      help='Determine the minimun frequency an allele has to' +
+                      ' have in the population in order to be considered')
+
+    (options, args) = parser.parse_args()
+
+    # Read from standard in by default.
+    ms_in = sys.stdin
+
+    if len(args) > 0:
+        ms_in = open(args[0],'r')
+
+    ms_file = ms.MSResult( ms_in )
+
+    f_names = options.f_names.split(' ')
+
+    lib_num = [options.mom_num, options.dad_num, options.sib1_num,
+              options.sib2_num, options.con_num]
+
+    minimo = float(options.min_freq)
+
+    process_ms_results( ms_file, f_names, options.probability, lib_num, minimo )
+
+    ms_in.close()
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+
+    
+    

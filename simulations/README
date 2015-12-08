@@ -1,0 +1,152 @@
+This file describes the use of each program, as well as the
+input and output files for each one. For further explanation 
+of how each program works, adress the Report or the 
+annotations made in the scripts.
+
+Carlos Fernando Buen Abad Najar
+Latest update: Jul 24, 2014
+
+-------------------------------------------------------------
+
+Resume ot the pipeline:
+ms > ms2diploid > pairs_in_range > indv_test > select_pairs
+
+Alternative pipeline:
+ms > ms2siblings > pairs_in_range > indv_test > select_pairs
+
+-------------------------------------------------------------
+
+ms2diploid 
+
+This program is used to create fake degraded DNA libraries from
+an ms simulation output.
+reads the output of a ms simulation output where
+the theta and rho values, as well as the segment length are 
+specified. For example:
+ms 100 50 -t 100 -r 50 10000
+The program generates the following files:
+
+library:
+A file containing fake ancient DNA libraries created
+from the first two chromosome pairs in the ms simulation (one
+diploid test individual and one diploid control individual).
+Each row corresponds to a SNP. The first four columns display 
+the chromosome where the SNP is located (chr1), the position 
+of the SNP, and the ancestral and alternative state of the SNP 
+(A and T respectively). The following columns show first the
+libraries created from the test diploid individual and then
+the libraries created from the control diploid individual
+(default = one from each diploid). In every row each library
+displays either the state of the SNP present on the library
+(ancestral or alternative) or a dot if no information is 
+captured of that site in that particular library.
+The file does not show the SNP from the ms simulation where
+no information is captured in at least one of the libraries, 
+or where any of the alleles has less than a minimum required
+frequency (Default=10%).
+This file is an input for pairs_in_range. In our pipeline
+it is used to test if we can identify when two libraries come
+from the same individual or from two different individuals.
+
+impute.hap:
+This file contains an haplotype matrix in an impute format.
+The matrix is basically the transposed genotype matrix from
+the ms simulation except for the first four chromosomes, 
+this is, it does not cointain the information of the chromosomes
+that were used to create the libraries in the library file.
+Each row correspond to a SNP and each column corresponds to a 
+chromosome. Each column is sepatrated by a space. The matrix does 
+not display the rows where no information is captured in any of 
+the libraries displayed on the library file, or where any of the 
+alleles has less than a minimum required frequency (Default=10%).
+If more than one sample is simulated with the ms program, the
+following matrices are added as more rows to the previous matrix.
+This file is an input for indv_test. In our pipeline, this file is 
+used to calculate the frequency of each allele and the linkage 
+between them.
+
+impute.legend:
+This file contains an impute legend file created from the ms
+simulation.
+The header is "ID pos allele0 allele1".
+Each of the following rows correspond to a SNP, not displaying
+those SNP where no information is captured in any of the libraries
+or where any of the alleles has less than a minimum required
+frequency (Default=10%).
+The first column corresponds to the SNP ID number, that is
+sim#_seg##, where # correspond to the sample number in the ms 
+simulation and ## is the number of SNP in the sample.
+The second column corresponds to the SNP position, the third
+column is always an A and the fourth a T (the ancestral and 
+alternative states respectively).
+This file is an input for indv_test.
+
+The SNP positions (shown in the library and the impute.legend
+files) are created by multiplying the segment length and the 
+position given by the ms simulation. Double hits are avoided.
+If more than one sample is simulated, the program adds 1 Mb to
+the SNP positions from the second sample, 2 Mb to the positions
+from the third sample, and so on.
+
+The comand for ms2diploid is the following:
+
+python ms2diploid -m # -p # -d # -c # ms_file
+
+ms_file indicates the ms output file.
+The other keys are optional.
+-m is followed by the minimum allele frequency required
+for a SNP to be considered (default = 0.1), -p  by 
+the probability of an allele to be stored in a library (default
+= 0.01), -d by the number of libraries created from the test
+diploid individual (default = 1) and -c by the number of libraries
+created from the control diploid individual (default = 1).
+
+-------------------------------------------------------------
+
+ms2siblings
+
+This program is a variant of ms2diploid that uses an ms output to 
+simulate the formation of two diploid "siblings" from the same 
+diploid pair of parents. It produces the same files than ms2diploid, 
+where only a few changes are made:
+
+library:
+In the library file, first come the libraries created from each diploid 
+parent, then the libraries created from each diploid sibling, and then 
+the libraries coming from an unrelated control diploid individual. 
+The default number of libraries for each individual is 1 (5 libraries in total).
+
+impute.hap 
+Displays the ms genotype matrix as an impute matrix. The difference from
+the ms2diploid impute.hap file is that it skips the first six chromosomes
+instead of only the first four.
+
+impute.legend
+The format and uses are the same as in ms2diploid.
+
+
+The comand for ms2siblings is the following:
+
+python ms2siblings -m # -p # -d # -c # ms_file
+
+The function and default of every key is the same as in ms2diploid.
+
+-------------------------------------------------------------
+
+select_pairs 
+Takes an indv_test output and generates a list of 
+log likelihoods produced by randomly picking pairs for every ms
+samples and adding them up. It repeats the process by default 
+100 times.
+
+-------------------------------------------------------------
+
+These programs are Samuel's:
+
+pairs_in_range 
+Takes a ms2diploid library file and generates
+a table of pairs.
+
+indv_test 
+Takes a pairs_in_range output table and ms2diploid outputs
+impute.hap and impute.legend 
