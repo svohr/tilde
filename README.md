@@ -8,8 +8,10 @@ Introduction
 This repository contains scripts and additional files related to the 
 manuscript:
 
-> Vohr et al. *A method for positive forensic identification of samples 
-> from extremely low-coverage sequence data.* (in review)
+> Samuel H. Vohr, Carlos Fernando Buen Abad Najar, Beth Shapiro, Richard E.
+> Green. "A method for positive forensic identification of samples 
+> from extremely low-coverage sequence data." *BMC Genomics* 2015, **16**:1034
+> \[[link](http://www.biomedcentral.com/1471-2164/16/1034)\]
 
 This manuscript presents a method for determining whether two samples are from
 the same individual from extremely low-coverage, high-throughput sequencing
