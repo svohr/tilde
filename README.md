@@ -153,6 +153,6 @@ Example
 Simulations
 -----------
 Scripts that were used to convert genotypes from coalescent simulations
-to simulated low-coverage libraries are reference panels are included in
+to simulated low-coverage libraries and reference panels are included in
 the directory `simulations`.
 
