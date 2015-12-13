@@ -173,7 +173,7 @@ def main(argv=None):
    
     tab_out = sys.stdout
     
-    build_obs_table_samtools(tab_out, args.chrm, snp_tab, args.bams)
+    build_obs_table_samtools(tab_out, args.chrm, snp_tab, args)
 
     return 0
 
