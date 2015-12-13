@@ -258,8 +258,8 @@ def main(argv=None):
     parser.add_argument('pairs_filename', metavar='pairs.tab', type=str,
                         nargs='?', default=None,
                         help='Table of SNP pairs')
-#   parser.add_argument('-x', '--haploid', action='store_true', 
-#                       help='Haploid mode (for chrX) NOT TESTED')
+    parser.add_argument('-x', '--haploid', action='store_true', 
+                        help='Haploid mode (for chrX) NOT TESTED')
     parser.add_argument('-r', '--random', type=str, metavar='MODEL', 
                         default=None,
                         help='Randomly choose the second base using '
