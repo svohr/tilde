@@ -86,7 +86,8 @@ def observe_snps_from_mpileup(mpu_output, max_cov):
     return observed
 
 
-def get_snps_samtools(bam_filename, pos_filename, min_mapq, min_baseq, max_cov):
+def get_snps_samtools(bam_filename, pos_filename, 
+                      min_mapq, min_baseq, max_cov, verbose):
     """ Runs samtools mpileup as a subprocess and returns the output """
     samtools_args = ['/usr/local/bin/samtools', 'mpileup',
                      '-q', str(min_mapq),
@@ -94,6 +95,8 @@ def get_snps_samtools(bam_filename, pos_filename, min_mapq, min_baseq, max_cov):
                      '-d', str(max_cov + 10),
                      '-l', pos_filename,
                      bam_filename]
+    if verbose: 
+        sys.stderr.write('Calling samtools:\n  %s\n' % ' '.join(samtools_args))
     mpileup = subprocess.Popen(samtools_args, 
                                stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE)
@@ -115,8 +118,7 @@ def write_final_table(out, chrm, snp_tab, obs_tab):
     return
 
 
-def build_obs_table_samtools(tab_out, chrm, snp_tab, bams, 
-                             min_mapq, min_baseq, max_cov):
+def build_obs_table_samtools(tab_out, chrm, snp_tab, args): 
     """ Reads through bam files to find base observations for SNPs. 
         Builds a table of observations by SNP. """
     obs_tab = list()
@@ -125,10 +127,11 @@ def build_obs_table_samtools(tab_out, chrm, snp_tab, bams,
         dump_snp_positions(snp_tab, chrm, pos_file)
         pos_file.close()
 
-        for bam in bams:
+        for bam in args.bams:
             mpu_output = get_snps_samtools(bam, pos_file.name, 
-                                           min_mapq, min_baseq, max_cov) 
-            obs_tab.append(observe_snps_from_mpileup(mpu_output, max_cov))
+                                           args.min_mq, args.min_bq, 
+                                           args.max_cov, args.verbose) 
+            obs_tab.append(observe_snps_from_mpileup(mpu_output, args.max_cov))
         write_final_table(tab_out, chrm, snp_tab, obs_tab) 
     finally:
         os.remove(pos_file.name)
@@ -160,15 +163,18 @@ def main(argv=None):
     parser.add_argument('-c', '--max-cov', type=int, 
                         metavar="COV", default=1,
                         help='Maximum coverage to allow (inclusive).')
+    parser.add_argument('-v', '--verbose', action="store_true",
+                        help='Print debug information')
     args = parser.parse_args()
 
     leg_in = open(args.impute_leg, 'r')
     snp_tab = read_snp_legend(leg_in) 
     leg_in.close()
-    
+   
     tab_out = sys.stdout
-    build_obs_table_samtools(tab_out, args.chrm, snp_tab, args.bams, 
-                             args.min_mq, args.min_bq, args.max_cov)
+    
+    build_obs_table_samtools(tab_out, args.chrm, snp_tab, args.bams)
+
     return 0
 
 
