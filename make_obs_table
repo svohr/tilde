@@ -89,7 +89,7 @@ def observe_snps_from_mpileup(mpu_output, max_cov):
 def get_snps_samtools(bam_filename, pos_filename, 
                       min_mapq, min_baseq, max_cov, verbose):
     """ Runs samtools mpileup as a subprocess and returns the output """
-    samtools_args = ['/usr/local/bin/samtools', 'mpileup',
+    samtools_args = ['samtools', 'mpileup',
                      '-q', str(min_mapq),
                      '-Q', str(min_baseq),
                      '-d', str(max_cov + 10),
